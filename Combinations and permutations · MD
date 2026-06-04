@@ -1,0 +1,789 @@
+# 🔢 Combinations & Permutations — Complete Recursion Guide
+
+> Covering: Combination Sum (with & without repetition) · Permutations (with & without repetition) · Recursion Trees · Interview Preparation Guide
+
+---
+
+## 📚 Table of Contents
+
+1. [Core Concept: Pick / Not-Pick Framework](#1-core-concept-pick--not-pick-framework)
+2. [Combination Sum I — Repeated Values Allowed](#2-combination-sum-i--repeated-values-allowed)
+3. [Combination Sum II — No Repetition (Unique Elements)](#3-combination-sum-ii--no-repetition-unique-elements)
+4. [Comparison: Combination Sum I vs II](#4-comparison-combination-sum-i-vs-ii)
+5. [Permutations I — No Repeated Values](#5-permutations-i--no-repeated-values)
+6. [Permutations II — With Repeated Values (Duplicates)](#6-permutations-ii--with-repeated-values-duplicates)
+7. [Comparison: Permutations I vs II](#7-comparison-permutations-i-vs-ii)
+8. [How Combinations vs Permutations Differ](#8-how-combinations-vs-permutations-differ)
+9. [Interview Preparation Guide](#9-interview-preparation-guide)
+
+---
+
+## 1. Core Concept: Pick / Not-Pick Framework
+
+Every combination and permutation problem is built on a **decision tree** where at each step you make a choice about which element to include.
+
+```
+Two fundamental patterns:
+┌──────────────────────────────────────────────────┐
+│  COMBINATION pattern  (order doesn't matter)     │
+│  → Pick / Not-Pick at each index                 │
+│  → Move index forward to avoid duplicates        │
+│                                                  │
+│  PERMUTATION pattern  (order matters)            │
+│  → Choose ANY remaining unused element           │
+│  → Mark used, recurse, unmark (backtrack)        │
+└──────────────────────────────────────────────────┘
+```
+
+### The Backtracking Template (applies to ALL problems below)
+
+```
+solve(choices, current, result):
+    if base_condition_met:
+        result.add(copy of current)
+        return
+
+    for each valid choice:
+        make choice       → add to current
+        solve(...)        → recurse
+        undo choice       → backtrack (remove from current)
+```
+
+> 🔑 **The backtrack step is mandatory.** Without it, choices from one branch bleed into another.
+
+---
+
+## 2. Combination Sum I — Repeated Values Allowed
+
+### Problem Statement
+
+Given a list of **distinct** candidate numbers and a target `T`, find all **unique combinations** where chosen numbers sum to `T`. The **same number may be used multiple times**.
+
+```
+Input:  candidates = [2, 3, 6, 7],  target = 7
+Output: [[2,2,3], [7]]
+```
+
+### Key Rules
+- Each candidate can be picked **unlimited times**.
+- The combination `[2,2,3]` and `[3,2,2]` are the **same** combination (order doesn't matter).
+- No duplicate combinations in the result.
+
+### How Repetition is Allowed
+
+The trick: when you **pick** an element, you **stay at the same index** (allowing it to be picked again). When you **don't pick**, you **move to the next index**.
+
+```
+Pick element at index i  →  recurse with index = i   (same index, allows reuse)
+Skip element at index i  →  recurse with index = i+1 (move on)
+```
+
+### Algorithm
+
+```
+combinationSum(candidates, index, target, current, result):
+    BASE CASES:
+        if target == 0:
+            result.add(copy of current)   ← Found valid combination
+            return
+        if index == candidates.length OR target < 0:
+            return                         ← Exhausted options or overshot
+
+    // PICK: include candidates[index], stay at same index
+    current.add(candidates[index])
+    combinationSum(candidates, index, target - candidates[index], current, result)
+    current.remove(last)                   ← BACKTRACK
+
+    // NOT PICK: skip candidates[index], move to next
+    combinationSum(candidates, index + 1, target, current, result)
+```
+
+### Recursion Tree — candidates=[2,3,6,7], target=7
+
+```
+f(i=0, T=7, [])
+├── Pick 2  → f(i=0, T=5, [2])
+│   ├── Pick 2  → f(i=0, T=3, [2,2])
+│   │   ├── Pick 2  → f(i=0, T=1, [2,2,2])
+│   │   │   ├── Pick 2  → f(i=0, T=-1, [2,2,2,2]) → OVERSHOT ✗
+│   │   │   └── Skip 2  → f(i=1, T=1, [2,2,2])
+│   │   │       ├── Pick 3  → f(i=1, T=-2) → OVERSHOT ✗
+│   │   │       └── Skip 3  → f(i=2, T=1) → all remaining > 1 → ✗
+│   │   └── Skip 2  → f(i=1, T=3, [2,2])
+│   │       ├── Pick 3  → f(i=1, T=0, [2,2,3]) → TARGET HIT ✅ → ADD [2,2,3]
+│   │       └── Skip 3  → f(i=2, T=3, [2,2])
+│   │           ├── Pick 6  → OVERSHOT ✗
+│   │           └── Skip 6  → f(i=3, T=3) → 7>3 → ✗
+│   └── Skip 2  → f(i=1, T=5, [2])
+│       ├── Pick 3  → f(i=1, T=2, [2,3])
+│       │   └── (all paths lead to overshot or exhausted) ✗
+│       └── Skip 3  → ... (6>5, 7>5) ✗
+├── Skip 2  → f(i=1, T=7, [])
+│   ├── Pick 3  → f(i=1, T=4, [3])
+│   │   └── (no valid combination) ✗
+│   ├── Skip 3  → f(i=2, T=7, [])
+│   │   ├── Pick 6  → f(i=2, T=1, [6]) → overshot or exhausted ✗
+│   │   └── Skip 6  → f(i=3, T=7, [])
+│   │       ├── Pick 7  → f(i=3, T=0, [7]) → TARGET HIT ✅ → ADD [7]
+│   │       └── Skip 7  → f(i=4) → exhausted ✗
+
+RESULT: [[2,2,3], [7]]
+```
+
+### Pruning Optimization
+
+Sort the candidates array first. If `candidates[i] > target`, all subsequent elements are also too large → **prune entire branch**.
+
+```
+if (candidates[index] > target) return;  // Sorted array → prune
+```
+
+### Java Code
+
+```java
+import java.util.*;
+
+public class CombinationSumI {
+    public List<List<Integer>> combinationSum(int[] candidates, int target) {
+        List<List<Integer>> result = new ArrayList<>();
+        Arrays.sort(candidates); // Sort for pruning
+        backtrack(candidates, 0, target, new ArrayList<>(), result);
+        return result;
+    }
+
+    private void backtrack(int[] candidates, int index, int target,
+                           List<Integer> current, List<List<Integer>> result) {
+        // Base case: target reached
+        if (target == 0) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+
+        for (int i = index; i < candidates.length; i++) {
+            // Pruning: sorted array, so all further elements also too large
+            if (candidates[i] > target) break;
+
+            current.add(candidates[i]);
+            // i (not i+1) → allows reuse of same element
+            backtrack(candidates, i, target - candidates[i], current, result);
+            current.remove(current.size() - 1); // Backtrack
+        }
+    }
+
+    public static void main(String[] args) {
+        CombinationSumI sol = new CombinationSumI();
+        System.out.println(sol.combinationSum(new int[]{2,3,6,7}, 7));
+        // Output: [[2,2,3],[7]]
+        System.out.println(sol.combinationSum(new int[]{2,3,5}, 8));
+        // Output: [[2,2,2,2],[2,3,3],[3,5]]
+    }
+}
+```
+
+### Time & Space Complexity
+
+| | Complexity | Notes |
+|--|--|--|
+| **Time** | O(N^(T/M)) | N=candidates, T=target, M=min candidate |
+| **Space** | O(T/M) | Max recursion depth = target/smallest |
+
+---
+
+## 3. Combination Sum II — No Repetition (Unique Elements)
+
+### Problem Statement
+
+Given candidates that **may contain duplicates**, find all unique combinations that sum to `T`. Each number may be used **only once**.
+
+```
+Input:  candidates = [10, 1, 2, 7, 6, 1, 5],  target = 8
+Output: [[1,1,6], [1,2,5], [1,7], [2,6]]
+```
+
+### Key Differences from Combination Sum I
+
+| Aspect | Sum I | Sum II |
+|--------|-------|--------|
+| Input | Distinct values | May have duplicates |
+| Reuse | Same element unlimited times | Each element used once |
+| Index progression | Stay at `i` when picking | Always move to `i+1` |
+| Duplicate handling | Not needed (distinct input) | Must skip duplicate siblings |
+
+### The Duplicate Skipping Rule
+
+After sorting, identical values appear consecutively. At the **same recursion level** (same position in the tree), if we've already explored starting with value `v`, we skip all subsequent `v`s — they'd produce identical subsets.
+
+```
+candidates = [1, 1, 2, 5, 6, 7, 10]  (sorted)
+
+At level 0, index 0:
+  Pick candidates[0]=1 → explore branch
+  candidates[1]=1 → SAME VALUE at same level → SKIP
+  Pick candidates[2]=2 → explore branch
+  ... and so on
+```
+
+### Algorithm
+
+```
+combinationSum2(candidates, index, target, current, result):
+    if target == 0:
+        result.add(copy of current)
+        return
+
+    for i from index to end:
+        // SKIP DUPLICATE: same value already tried at this level
+        if i > index AND candidates[i] == candidates[i-1]:
+            continue
+
+        if candidates[i] > target: break  // Pruning
+
+        current.add(candidates[i])
+        combinationSum2(candidates, i+1, target-candidates[i], current, result)
+        //                           ↑ i+1 (NOT i): each element used once
+        current.remove(last)  // Backtrack
+```
+
+### Recursion Tree — candidates=[1,1,2,5,6,7,10], target=8
+
+```
+Sorted: [1, 1, 2, 5, 6, 7, 10]
+         0  1  2  3  4  5   6
+
+f(i=0, T=8, [])
+├── Pick 1 (i=0)  → f(i=1, T=7, [1])
+│   ├── Pick 1 (i=1)  → f(i=2, T=6, [1,1])
+│   │   ├── Pick 2  → f(i=3, T=4, [1,1,2]) → no valid → ✗
+│   │   ├── Pick 5  → f(i=4, T=1, [1,1,5]) → no valid → ✗
+│   │   ├── Pick 6  → f(i=5, T=0, [1,1,6]) → ✅ ADD [1,1,6]
+│   │   └── Pick 7  → OVERSHOT ✗
+│   ├── Pick 2 (i=2)  → f(i=3, T=5, [1,2])
+│   │   ├── Pick 5  → f(T=0, [1,2,5]) → ✅ ADD [1,2,5]
+│   │   ├── Pick 6  → OVERSHOT ✗
+│   │   └── ...
+│   ├── Pick 5 (i=3)  → f(T=2, [1,5]) → no valid → ✗
+│   ├── Pick 6 (i=4)  → f(T=1, [1,6]) → no valid → ✗
+│   └── Pick 7 (i=5)  → f(T=0, [1,7]) → ✅ ADD [1,7]
+│
+├── SKIP 1 (i=1) → i>index AND candidates[1]==candidates[0] → SKIP ✗
+│
+├── Pick 2 (i=2)  → f(i=3, T=6, [2])
+│   ├── Pick 5  → f(T=1, [2,5]) → ✗
+│   ├── Pick 6  → f(T=0, [2,6]) → ✅ ADD [2,6]
+│   └── ...
+├── Pick 5 (i=3)  → no valid → ✗
+├── Pick 6 (i=4)  → no valid → ✗
+├── Pick 7 (i=5)  → no valid → ✗
+└── Pick 10 (i=6) → OVERSHOT ✗
+
+RESULT: [[1,1,6], [1,2,5], [1,7], [2,6]]
+```
+
+### Java Code
+
+```java
+import java.util.*;
+
+public class CombinationSumII {
+    public List<List<Integer>> combinationSum2(int[] candidates, int target) {
+        List<List<Integer>> result = new ArrayList<>();
+        Arrays.sort(candidates); // CRITICAL: sort to group duplicates
+        backtrack(candidates, 0, target, new ArrayList<>(), result);
+        return result;
+    }
+
+    private void backtrack(int[] candidates, int index, int target,
+                           List<Integer> current, List<List<Integer>> result) {
+        if (target == 0) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+
+        for (int i = index; i < candidates.length; i++) {
+            // Skip duplicate values at the same recursion level
+            if (i > index && candidates[i] == candidates[i - 1]) continue;
+
+            // Pruning: sorted → no point continuing
+            if (candidates[i] > target) break;
+
+            current.add(candidates[i]);
+            backtrack(candidates, i + 1, target - candidates[i], current, result);
+            //                    ↑ i+1: each element used at most once
+            current.remove(current.size() - 1); // Backtrack
+        }
+    }
+
+    public static void main(String[] args) {
+        CombinationSumII sol = new CombinationSumII();
+        System.out.println(sol.combinationSum2(new int[]{10,1,2,7,6,1,5}, 8));
+        // Output: [[1,1,6],[1,2,5],[1,7],[2,6]]
+        System.out.println(sol.combinationSum2(new int[]{2,5,2,1,2}, 5));
+        // Output: [[1,2,2],[5]]
+    }
+}
+```
+
+---
+
+## 4. Comparison: Combination Sum I vs II
+
+```
+┌─────────────────────┬──────────────────────┬──────────────────────┐
+│ Aspect              │ Combination Sum I     │ Combination Sum II   │
+├─────────────────────┼──────────────────────┼──────────────────────┤
+│ Input               │ Distinct candidates  │ May have duplicates  │
+│ Reuse               │ Unlimited reuse      │ Use each once only   │
+│ Recurse with        │ index = i (same)     │ index = i+1 (next)   │
+│ Duplicate skipping  │ Not required         │ Required (sort+skip) │
+│ Sort needed?        │ For pruning only     │ Mandatory for dedup  │
+│ Typical result size │ Smaller              │ Larger (more choices)│
+└─────────────────────┴──────────────────────┴──────────────────────┘
+
+Key line difference:
+  Sum I:  backtrack(candidates, i,   ...)  // stay at i
+  Sum II: backtrack(candidates, i+1, ...)  // move to i+1
+```
+
+---
+
+## 5. Permutations I — No Repeated Values
+
+### Problem Statement
+
+Given an array of **distinct** integers, return **all possible permutations**.
+
+```
+Input:  [1, 2, 3]
+Output: [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+Total:  3! = 6 permutations
+```
+
+### Key Idea: Order Matters
+
+Unlike combinations, `[1,2,3]` and `[3,2,1]` are **different** permutations.  
+At each position, we can place **any unused** element.
+
+### Two Approaches
+
+#### Approach A: Using a `used[]` boolean array
+
+```
+permute(nums, used, current, result):
+    if current.size() == nums.length:
+        result.add(copy of current)
+        return
+
+    for i from 0 to nums.length-1:
+        if used[i]: continue          // Skip already used elements
+
+        used[i] = true                // Mark as used
+        current.add(nums[i])
+        permute(nums, used, current, result)
+        current.remove(last)          // Backtrack
+        used[i] = false               // Unmark
+```
+
+#### Approach B: Swap in place
+
+```
+permute(nums, start, result):
+    if start == nums.length:
+        result.add(copy of nums)
+        return
+
+    for i from start to nums.length-1:
+        swap(nums[start], nums[i])    // Place nums[i] at position start
+        permute(nums, start+1, result)
+        swap(nums[start], nums[i])    // Backtrack: restore original order
+```
+
+### Recursion Tree — [1, 2, 3] using used[] approach
+
+```
+f(current=[], used=[F,F,F])
+├── Pick 1 (i=0) → f(current=[1], used=[T,F,F])
+│   ├── Pick 2 (i=1) → f(current=[1,2], used=[T,T,F])
+│   │   └── Pick 3 (i=2) → f([1,2,3], used=[T,T,T]) → ✅ ADD [1,2,3]
+│   └── Pick 3 (i=2) → f(current=[1,3], used=[T,F,T])
+│       └── Pick 2 (i=1) → f([1,3,2]) → ✅ ADD [1,3,2]
+├── Pick 2 (i=1) → f(current=[2], used=[F,T,F])
+│   ├── Pick 1 (i=0) → f([2,1], used=[T,T,F])
+│   │   └── Pick 3 → f([2,1,3]) → ✅ ADD [2,1,3]
+│   └── Pick 3 (i=2) → f([2,3], used=[F,T,T])
+│       └── Pick 1 → f([2,3,1]) → ✅ ADD [2,3,1]
+└── Pick 3 (i=2) → f(current=[3], used=[F,F,T])
+    ├── Pick 1 → f([3,1]) → Pick 2 → ✅ ADD [3,1,2]
+    └── Pick 2 → f([3,2]) → Pick 1 → ✅ ADD [3,2,1]
+
+Total: 6 = 3!
+```
+
+### Call Stack Snapshot (at deepest point for [1,2,3])
+
+```
+┌──────────────────────────────────────────────────┐
+│ permute(start=3) → adds [1,2,3] to result        │ ← TOP
+├──────────────────────────────────────────────────┤
+│ permute(start=2) → picked 3, current=[1,2,3]     │
+├──────────────────────────────────────────────────┤
+│ permute(start=1) → picked 2, current=[1,2]       │
+├──────────────────────────────────────────────────┤
+│ permute(start=0) → picked 1, current=[1]         │
+├──────────────────────────────────────────────────┤
+│ main()                                           │ ← BOTTOM
+└──────────────────────────────────────────────────┘
+```
+
+### Java Code
+
+```java
+import java.util.*;
+
+public class PermutationsI {
+
+    // Approach A: using boolean used[] array
+    public List<List<Integer>> permute(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        boolean[] used = new boolean[nums.length];
+        backtrack(nums, used, new ArrayList<>(), result);
+        return result;
+    }
+
+    private void backtrack(int[] nums, boolean[] used,
+                           List<Integer> current, List<List<Integer>> result) {
+        // Base case: formed a complete permutation
+        if (current.size() == nums.length) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+
+        for (int i = 0; i < nums.length; i++) {
+            if (used[i]) continue;           // Skip used elements
+
+            used[i] = true;
+            current.add(nums[i]);
+            backtrack(nums, used, current, result);
+            current.remove(current.size() - 1); // Backtrack
+            used[i] = false;
+        }
+    }
+
+    // Approach B: swap in place (no extra space)
+    public List<List<Integer>> permuteSwap(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        permuteHelper(nums, 0, result);
+        return result;
+    }
+
+    private void permuteHelper(int[] nums, int start, List<List<Integer>> result) {
+        if (start == nums.length) {
+            List<Integer> perm = new ArrayList<>();
+            for (int n : nums) perm.add(n);
+            result.add(perm);
+            return;
+        }
+
+        for (int i = start; i < nums.length; i++) {
+            swap(nums, start, i);              // Choose: put nums[i] at position start
+            permuteHelper(nums, start + 1, result);
+            swap(nums, start, i);              // Backtrack: restore
+        }
+    }
+
+    private void swap(int[] nums, int a, int b) {
+        int temp = nums[a];
+        nums[a] = nums[b];
+        nums[b] = temp;
+    }
+
+    public static void main(String[] args) {
+        PermutationsI sol = new PermutationsI();
+
+        System.out.println("Using boolean array:");
+        System.out.println(sol.permute(new int[]{1, 2, 3}));
+
+        System.out.println("Using swap:");
+        System.out.println(sol.permuteSwap(new int[]{1, 2, 3}));
+    }
+}
+```
+
+### Time & Space Complexity
+
+| | Complexity | Notes |
+|--|--|--|
+| **Time** | O(N! × N) | N! permutations, each costs O(N) to copy |
+| **Space** | O(N) | Recursion depth = N, used[] array = N |
+
+---
+
+## 6. Permutations II — With Repeated Values (Duplicates)
+
+### Problem Statement
+
+Given an array that **may contain duplicates**, return all **unique** permutations.
+
+```
+Input:  [1, 1, 2]
+Output: [[1,1,2],[1,2,1],[2,1,1]]
+Total:  3!/2! = 3  (not 6, because two 1s are identical)
+```
+
+### Why Duplicates Cause Problems
+
+With naive permutation on `[1, 1, 2]`:
+```
+Place 1(first) → [1,1,2] and [1,2,1]
+Place 1(second)→ [1,1,2] and [1,2,1]  ← DUPLICATES of above!
+Place 2        → [2,1,1]
+```
+The two `1`s are interchangeable, so swapping them produces the same permutation.
+
+### The Duplicate Skipping Rule for Permutations
+
+Sort the array first. At each recursion level, skip an element if:
+1. It's the same value as the previous element **at the same level**, AND
+2. The previous element has **not been used** yet.
+
+The second condition is the subtle part: if the previous same-value element **was** used (is in the current path), we are in a different branch and it's fine to use this one.
+
+```
+Condition to skip: used[i-1] == false AND nums[i] == nums[i-1]
+```
+
+Why `used[i-1] == false`?
+- `used[i-1] == true`  → nums[i-1] is in the current path; nums[i] creates a new arrangement → **ALLOW**
+- `used[i-1] == false` → nums[i-1] was tried and backtracked; nums[i] would create same arrangement → **SKIP**
+
+### Recursion Tree — [1, 1, 2] (sorted)
+
+```
+Sorted: [1, 1, 2]
+         0  1  2
+
+f(used=[F,F,F], current=[])
+├── Pick nums[0]=1 (used=[T,F,F]) → f(used=[T,F,F], [1])
+│   ├── Pick nums[1]=1 (used=[T,T,F]) → f([T,T,F], [1,1])
+│   │   └── Pick nums[2]=2 → [1,1,2] ✅ ADD
+│   └── SKIP nums[1]=1? No: used[0]=T → nums[0] is in path → different branch → ALLOW
+│       Wait, we are at nums[1] now with used[0]=T:
+│       i=1: nums[1]=1, nums[0]=1 same, used[0]=T → ALLOW (different position)
+│       i=2: Pick nums[2]=2 (used=[T,F,T]) → f([T,F,T], [1,2])
+│           └── Pick nums[1]=1 → [1,2,1] ✅ ADD
+│
+├── SKIP nums[1]=1? i=1, nums[1]==nums[0], used[0]=F → SKIP ✗
+│
+└── Pick nums[2]=2 (used=[F,F,T]) → f([F,F,T], [2])
+    ├── Pick nums[0]=1 (used=[T,F,T]) → f([T,F,T], [2,1])
+    │   └── i=1: nums[1]=1, nums[0]=1, used[0]=T → ALLOW
+    │       Pick nums[1]=1 → [2,1,1] ✅ ADD
+    └── SKIP nums[1]=1? i=1, nums[1]==nums[0], used[0]=F → SKIP ✗
+
+RESULT: [[1,1,2], [1,2,1], [2,1,1]] ✓ No duplicates!
+```
+
+### Java Code
+
+```java
+import java.util.*;
+
+public class PermutationsII {
+
+    public List<List<Integer>> permuteUnique(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        Arrays.sort(nums); // CRITICAL: sort to group duplicate values
+        boolean[] used = new boolean[nums.length];
+        backtrack(nums, used, new ArrayList<>(), result);
+        return result;
+    }
+
+    private void backtrack(int[] nums, boolean[] used,
+                           List<Integer> current, List<List<Integer>> result) {
+        if (current.size() == nums.length) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+
+        for (int i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+
+            // Skip duplicate: same value, and previous copy not yet used at this level
+            if (i > 0 && nums[i] == nums[i - 1] && !used[i - 1]) continue;
+
+            used[i] = true;
+            current.add(nums[i]);
+            backtrack(nums, used, current, result);
+            current.remove(current.size() - 1); // Backtrack
+            used[i] = false;
+        }
+    }
+
+    public static void main(String[] args) {
+        PermutationsII sol = new PermutationsII();
+
+        System.out.println(sol.permuteUnique(new int[]{1, 1, 2}));
+        // Output: [[1,1,2],[1,2,1],[2,1,1]]
+
+        System.out.println(sol.permuteUnique(new int[]{1, 2, 3}));
+        // Output: all 6 (no duplicates in input)
+
+        System.out.println(sol.permuteUnique(new int[]{2, 2, 1, 1}));
+        // Output: 4!/(2!*2!) = 6 unique permutations
+    }
+}
+```
+
+---
+
+## 7. Comparison: Permutations I vs II
+
+```
+┌────────────────────┬──────────────────────┬────────────────────────────┐
+│ Aspect             │ Permutations I        │ Permutations II            │
+├────────────────────┼──────────────────────┼────────────────────────────┤
+│ Input              │ Distinct values       │ May have duplicates        │
+│ Sort needed?       │ No                   │ Yes — mandatory            │
+│ Duplicate skip?    │ No                   │ Yes (i>0 && same && !used) │
+│ Result count       │ N!                   │ N! / (count of each dup)!  │
+│ Extra data struct  │ used[] array          │ used[] array + sort        │
+└────────────────────┴──────────────────────┴────────────────────────────┘
+
+Key additional line in Permutations II:
+  if (i > 0 && nums[i] == nums[i-1] && !used[i-1]) continue;
+```
+
+---
+
+## 8. How Combinations vs Permutations Differ
+
+```
+COMBINATIONS: Order does NOT matter
+  {1,2,3} = {3,2,1} = {2,1,3}   → counted as ONE
+  Solution: Fix order by always moving index forward (i+1)
+
+PERMUTATIONS: Order DOES matter
+  [1,2,3] ≠ [3,2,1] ≠ [2,1,3]  → all THREE counted
+  Solution: At each level, pick ANY unused element (from index 0)
+
+┌─────────────────────────────────────────────────────────┐
+│  Decision: Is [A,B] the same as [B,A] for your problem? │
+│    YES → Combination approach (index i+1 or stay)       │
+│    NO  → Permutation approach (used[] from index 0)     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Problem Classification Quick Guide
+
+| Problem | Type | Repetition | Approach |
+|---------|------|------------|----------|
+| Combination Sum I | Combination | Allowed | Stay at `i` |
+| Combination Sum II | Combination | Not allowed | Move to `i+1` + skip dups |
+| Subsets | Combination | Not allowed | Stay/Move with not-take |
+| Permutations I | Permutation | Not allowed | used[] from index 0 |
+| Permutations II | Permutation | Duplicates in input | used[] + sort + skip |
+| Phone keypad combos | Combination | Allowed | Multi-level recursion |
+
+---
+
+## 9. Interview Preparation Guide
+
+### 🎯 Identifying the Problem Type in 30 Seconds
+
+Ask yourself these questions in order:
+
+```
+Q1: Does order matter in the result?
+    YES → Permutation   (start from index 0 each time)
+    NO  → Combination   (start from current index)
+
+Q2: Can I reuse the same element?
+    YES → Stay at same index when picking
+    NO  → Move to i+1 when picking
+
+Q3: Are there duplicate values in input?
+    YES → Sort + skip duplicate siblings at each level
+    NO  → No special handling needed
+
+Q4: Do I need all results, or just count/exists?
+    ALL RESULTS → backtracking + collect
+    COUNT ONLY  → memoization + DP (usually faster)
+    EXISTS?     → early return on first valid path
+```
+
+### 🔴 Most Common Interview Mistakes
+
+| Mistake | Symptom | Fix |
+|---------|---------|-----|
+| Forgetting to backtrack | Incorrect subsets, elements persist across branches | Always `remove(last)` after recursive call |
+| Not copying the list | All results point to same (empty) list | Use `new ArrayList<>(current)` when adding |
+| Wrong index on reuse | Infinite loop (reuse) or missing combos (no reuse) | Stay at `i` for reuse, `i+1` for no reuse |
+| Missing duplicate skip | Duplicate results in output | Sort + `if (i > index && nums[i]==nums[i-1]) continue` |
+| Wrong condition for permutation dup skip | Still getting duplicates | `!used[i-1]` not `used[i-1]` |
+| Not sorting before duplicate handling | Random order makes deduplication incorrect | Always sort first when deduplication needed |
+
+### 📋 Top Interview Problems Using These Patterns
+
+| Problem | Approach | Difficulty |
+|---------|----------|------------|
+| LeetCode 39 — Combination Sum | Combo I (reuse) | Medium |
+| LeetCode 40 — Combination Sum II | Combo II (no reuse, dups) | Medium |
+| LeetCode 46 — Permutations | Perm I (distinct) | Medium |
+| LeetCode 47 — Permutations II | Perm II (dups) | Medium |
+| LeetCode 78 — Subsets | Take/Not-Take | Medium |
+| LeetCode 90 — Subsets II | Take/Not-Take + dedup | Medium |
+| LeetCode 77 — Combinations | Combo (choose k from n) | Medium |
+| LeetCode 216 — Combination Sum III | Combo with size limit | Medium |
+
+### 🗣️ How to Explain in an Interview
+
+**Step 1 — Classify (10 seconds)**
+> "This is a combination/permutation problem. Order does/doesn't matter, and reuse is/isn't allowed."
+
+**Step 2 — State the approach (20 seconds)**
+> "I'll use backtracking. At each step, I pick an element, recurse, and then undo the pick. The base case is when the current path meets the target condition."
+
+**Step 3 — Address duplicates if needed (10 seconds)**
+> "Since there may be duplicates, I'll sort the array first and skip elements that are the same as the previous one at the same recursion level."
+
+**Step 4 — Complexity (10 seconds)**
+> "Time is O(2^N) or O(N!) depending on combination/permutation. Space is O(N) for the recursion stack."
+
+### ⚡ Pattern Recognition Cheat Sheet
+
+```
+See "all combinations" → Backtrack with index advancing (i+1)
+See "all permutations" → Backtrack with used[] from index 0
+See "sum to target"    → Pass remaining = target - current
+See "no duplicates"    → Sort + skip if nums[i]==nums[i-1]
+See "reuse allowed"    → Stay at index i when picking
+See "each used once"   → Advance to i+1 when picking
+See "count only"       → Add memoization on top
+```
+
+### 💡 Template to Memorize
+
+```java
+void backtrack(input, index, current, result) {
+    // 1. Base case
+    if (goalMet) { result.add(new ArrayList<>(current)); return; }
+
+    // 2. Explore choices
+    for (int i = index; i < input.length; i++) {
+        // 3. Skip duplicates (if needed)
+        if (i > index && input[i] == input[i-1]) continue;
+
+        // 4. Make choice
+        current.add(input[i]);
+
+        // 5. Recurse (i for reuse, i+1 for no reuse)
+        backtrack(input, i or i+1, current, result);
+
+        // 6. Undo choice (backtrack)
+        current.remove(current.size() - 1);
+    }
+}
+```
+
+---
+
+> 💡 **Key Insight**: Every backtracking problem is a tree traversal problem in disguise. Drawing the recursion tree before coding almost always reveals the structure you need.
