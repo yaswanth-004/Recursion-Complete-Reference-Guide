@@ -1,0 +1,992 @@
+# ♛ N-Queens & Sudoku Solver — Classic Backtracking Problems
+
+> Two of the most important backtracking problems in competitive programming and technical interviews. Mastering these means mastering backtracking itself.
+
+---
+
+## 📚 Table of Contents
+
+**Part 1 — N-Queens**
+1. [Problem Statement](#1-n-queens--problem-statement)
+2. [Constraints & Rules](#2-constraints--rules)
+3. [Backtracking Approach](#3-backtracking-approach)
+4. [How Validity Checking Works](#4-how-validity-checking-works)
+5. [Recursion Tree — N=4](#5-recursion-tree--n4)
+6. [Stack Memory Representation](#6-stack-memory-representation--n-queens)
+7. [Optimized Solution (Bitmasking)](#7-optimized-solution-with-sets--bitmasking)
+8. [Java Code — N-Queens](#8-java-code--n-queens)
+9. [All Solutions for N=4](#9-all-solutions-for-n4)
+
+**Part 2 — Sudoku Solver**
+10. [Problem Statement](#10-sudoku-solver--problem-statement)
+11. [Constraints & Rules](#11-constraints--rules)
+12. [Backtracking Approach](#12-backtracking-approach)
+13. [How Validity Checking Works](#13-how-validity-checking-works)
+14. [Recursion Tree — Sudoku](#14-recursion-tree--sudoku)
+15. [Stack Memory Representation](#15-stack-memory-representation--sudoku)
+16. [Java Code — Sudoku](#16-java-code--sudoku)
+
+**Part 3 — Interview Preparation**
+17. [Comparison: N-Queens vs Sudoku](#17-comparison-n-queens-vs-sudoku)
+18. [Common Errors & Pitfalls](#18-common-errors--pitfalls)
+19. [Interview Preparation Guide](#19-interview-preparation-guide)
+
+---
+
+# PART 1 — N-QUEENS
+
+## 1. N-Queens — Problem Statement
+
+Place **N chess queens** on an **N×N chessboard** such that **no two queens attack each other**.
+
+A queen attacks any square in the **same row**, **same column**, or **same diagonal**.
+
+```
+4-Queens board (one valid solution):
+  . Q . .
+  . . . Q
+  Q . . .
+  . . Q .
+
+Q at: (0,1), (1,3), (2,0), (3,2)
+```
+
+**Input**: Integer N  
+**Output**: All valid arrangements of N queens on an N×N board.
+
+For N=4 → **2 solutions**  
+For N=8 → **92 solutions**
+
+---
+
+## 2. Constraints & Rules
+
+| Rule | Explanation |
+|------|-------------|
+| One queen per row | We place exactly one queen per row |
+| No two queens same column | Column conflict check |
+| No two queens same diagonal | Two diagonals: top-left→bottom-right and top-right→bottom-left |
+| All N queens must be placed | Solution uses all N queens |
+
+### Diagonal Formula
+
+For a board of size N with queen at `(r, c)`:
+- **Primary diagonal** (↘): `r - c` is constant for all cells on the same diagonal
+- **Anti-diagonal** (↙): `r + c` is constant for all cells on the same anti-diagonal
+
+```
+N=4 board — Primary diagonals (r-c):
+  -0  -1  -2  -3
+   1   0  -1  -2
+   2   1   0  -1
+   3   2   1   0
+
+N=4 board — Anti-diagonals (r+c):
+   0   1   2   3
+   1   2   3   4
+   2   3   4   5
+   3   4   5   6
+```
+
+---
+
+## 3. Backtracking Approach
+
+**Core Idea**: Place queens **row by row**. For each row, try every column. If it's safe, place the queen and recurse to the next row. If no column works, **backtrack** to the previous row.
+
+```
+solveNQueens(row, board, colUsed, diag1Used, diag2Used):
+    BASE CASE:
+        if row == N:
+            save current board as a solution
+            return
+
+    for col from 0 to N-1:
+        if col is NOT in colUsed
+        AND (row-col) is NOT in diag1Used
+        AND (row+col) is NOT in diag2Used:
+
+            Place queen at (row, col)
+            Mark col, (row-col), (row+col) as used
+
+            solveNQueens(row+1, ...)    ← Recurse to next row
+
+            Remove queen from (row, col)   ← BACKTRACK
+            Unmark col, (row-col), (row+col)
+```
+
+### Why Place One Per Row?
+
+Since no two queens can share a row, and we need exactly N queens on N rows, each row gets **exactly one** queen. This immediately reduces the search space from N^N possibilities to N! (at most), and validity checks eliminate most of those.
+
+---
+
+## 4. How Validity Checking Works
+
+At each step, we check three conditions before placing a queen at `(row, col)`:
+
+```
+1. Column check:    col  not in colSet
+2. Primary diagonal (↘): row-col not in diag1Set
+3. Anti-diagonal  (↙): row+col not in diag2Set
+```
+
+### Visual Example (N=4, placing at (0,1)):
+
+```
+Board after placing Q at (0,1):
+  . Q . .     colSet = {1}
+  . X . .     diag1Set = {0-1 = -1}
+  . . X .     diag2Set = {0+1 = 1}
+  . . . X
+
+X = cells now attacked (same column, same diagonal, same anti-diagonal)
+```
+
+When we try to place next queen in row 1:
+- `col=0`: check col 0 (ok), diag1 = 1-0=1 ≠ -1 (ok), diag2 = 1+0=1 ∈ {1} → **BLOCKED**
+- `col=1`: col 1 ∈ {1} → **BLOCKED**
+- `col=2`: col 2 (ok), diag1 = 1-2=-1 ∈ {-1} → **BLOCKED**
+- `col=3`: col 3 (ok), diag1 = 1-3=-2 (ok), diag2 = 1+3=4 (ok) → **VALID** ✓
+
+Place Q at (1,3).
+
+---
+
+## 5. Recursion Tree — N=4
+
+Abbreviated tree (showing only partial exploration):
+
+```
+                         ROW 0
+                 Q at col: 0    1     2    3
+                         /      |     |     \
+                       ROW 1
+              (0) → try 0,1,2,3
+                col=0: same diag ✗
+                col=1: same col ✗
+                col=2: ✓ → place at (1,2)
+                         |
+                       ROW 2
+              (0,2) → try 0,1,2,3
+                col=0: diag ✗
+                col=1: diag ✗
+                col=2: col ✗
+                col=3: diag ✗
+              ALL BLOCKED → BACKTRACK to (1,2)
+                col=3: ✓ → place at (1,3)
+                         |
+                       ROW 2
+              (0,3) → try 0,1,2,3
+                col=0: ✗  col=1: ✓ → place at (2,1)
+                         |
+                       ROW 3
+              (0,3,1) → try 0,1,2,3
+                col=0: diag ✗
+                col=1: col ✗
+                col=2: diag ✗
+                col=3: diag ✗
+              ALL BLOCKED → BACKTRACK
+
+              ... (continue)
+              col=2 at row 2 → ✓ → place at (2,2)? No, col 2 blocked.
+              ... 
+              Eventually: (row0=1) → (row1=3) → (row2=0) → (row3=2) ✅ SOLUTION 1
+              Continue:   (row0=2) → (row1=0) → (row2=3) → (row3=1) ✅ SOLUTION 2
+```
+
+### Pruning Power
+
+Without pruning: 4^4 = **256** possibilities to check.  
+With backtracking: only **~16** paths explored to find both solutions!
+
+---
+
+## 6. Stack Memory Representation — N-Queens
+
+For N=4, finding the first solution `[1, 3, 0, 2]` (queen column per row):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      CALL STACK                             │
+│                                                             │
+│  ┌────────────────────────────────────────────┐            │
+│  │  solve(row=4)                               │ ← TOP     │
+│  │  board=["·Q··","···Q","Q···","··Q·"]        │           │
+│  │  → BASE CASE: row==N → ADD SOLUTION         │           │
+│  ├────────────────────────────────────────────┤            │
+│  │  solve(row=3)                               │           │
+│  │  col=2 chosen                               │           │
+│  │  colSet={1,3,0,2}, diag1={-1,-2,-2,1}      │           │
+│  ├────────────────────────────────────────────┤            │
+│  │  solve(row=2)                               │           │
+│  │  col=0 chosen                               │           │
+│  │  colSet={1,3,0}, diag1={-1,-2,-2}           │           │
+│  ├────────────────────────────────────────────┤            │
+│  │  solve(row=1)                               │           │
+│  │  col=3 chosen                               │           │
+│  │  colSet={1,3}, diag1={-1,-2}                │           │
+│  ├────────────────────────────────────────────┤            │
+│  │  solve(row=0)                               │           │
+│  │  col=1 chosen                               │           │
+│  │  colSet={1}, diag1={-1}, diag2={1}          │           │
+│  ├────────────────────────────────────────────┤            │
+│  │  main() / nQueens()                         │ ← BOTTOM  │
+│  └────────────────────────────────────────────┘            │
+└─────────────────────────────────────────────────────────────┘
+
+After solution found, UNWIND & BACKTRACK:
+  row=4 returns → row=3 removes Q at col=2, tries col=3 → blocked
+  row=3 returns → row=2 removes Q at col=0, tries col=1,2,3 → blocked
+  row=2 returns → row=1 removes Q at col=3, tries col=4 → done
+  row=1 returns → row=0 removes Q at col=1, tries col=2 → new branch...
+```
+
+---
+
+## 7. Optimized Solution with Sets / Bitmasking
+
+### Using HashSets (Clean approach)
+
+Three sets track used columns and diagonals:
+```java
+Set<Integer> cols = new HashSet<>();
+Set<Integer> diag1 = new HashSet<>();  // r - c
+Set<Integer> diag2 = new HashSet<>();  // r + c
+```
+- Add before recursing, remove after (backtrack).
+- O(1) lookup per validity check.
+
+### Using Bitmasks (Fastest approach)
+
+Replace sets with integer bitmasks — each bit represents one column/diagonal:
+```java
+int colMask, diag1Mask, diag2Mask;
+// Check: (colMask >> col) & 1 == 0  (bit not set = safe)
+// Set:   colMask |= (1 << col)
+// Clear: colMask &= ~(1 << col)
+```
+Advantage: bitwise operations are extremely fast; no object allocation.
+
+---
+
+## 8. Java Code — N-Queens
+
+```java
+import java.util.*;
+
+public class NQueens {
+
+    // ─── Approach A: HashSets (readable) ───────────────────────────
+    public List<List<String>> solveNQueens(int n) {
+        List<List<String>> result = new ArrayList<>();
+        char[][] board = new char[n][n];
+        for (char[] row : board) Arrays.fill(row, '.');
+
+        Set<Integer> cols  = new HashSet<>();
+        Set<Integer> diag1 = new HashSet<>(); // r - c
+        Set<Integer> diag2 = new HashSet<>(); // r + c
+
+        solve(board, 0, n, cols, diag1, diag2, result);
+        return result;
+    }
+
+    private void solve(char[][] board, int row, int n,
+                       Set<Integer> cols, Set<Integer> diag1, Set<Integer> diag2,
+                       List<List<String>> result) {
+        // Base case: all N queens placed
+        if (row == n) {
+            result.add(boardToList(board));
+            return;
+        }
+
+        for (int col = 0; col < n; col++) {
+            // Check all three conflict conditions
+            if (cols.contains(col) ||
+                diag1.contains(row - col) ||
+                diag2.contains(row + col)) continue;
+
+            // Place queen
+            board[row][col] = 'Q';
+            cols.add(col);
+            diag1.add(row - col);
+            diag2.add(row + col);
+
+            // Recurse to next row
+            solve(board, row + 1, n, cols, diag1, diag2, result);
+
+            // Backtrack: remove queen
+            board[row][col] = '.';
+            cols.remove(col);
+            diag1.remove(row - col);
+            diag2.remove(row + col);
+        }
+    }
+
+    private List<String> boardToList(char[][] board) {
+        List<String> list = new ArrayList<>();
+        for (char[] row : board) list.add(new String(row));
+        return list;
+    }
+
+    // ─── Approach B: Bitmask (fastest, O(1) operations) ─────────────
+    private int n;
+    private List<List<String>> solutions;
+
+    public List<List<String>> solveNQueensBitmask(int n) {
+        this.n = n;
+        this.solutions = new ArrayList<>();
+        int[] queens = new int[n]; // queens[row] = column of queen in that row
+        Arrays.fill(queens, -1);
+        solveBitmask(queens, 0, 0, 0, 0);
+        return solutions;
+    }
+
+    private void solveBitmask(int[] queens, int row,
+                               int colMask, int diag1Mask, int diag2Mask) {
+        if (row == n) {
+            solutions.add(queensToBoard(queens));
+            return;
+        }
+
+        // availablePositions: bits that are not attacked
+        int available = ((1 << n) - 1) & ~(colMask | diag1Mask | diag2Mask);
+
+        while (available != 0) {
+            int pos = available & (-available);  // lowest set bit
+            available &= available - 1;          // clear lowest set bit
+            int col = Integer.numberOfTrailingZeros(pos);
+
+            queens[row] = col;
+            solveBitmask(queens, row + 1,
+                         colMask  | pos,
+                         (diag1Mask | pos) << 1,
+                         (diag2Mask | pos) >> 1);
+            queens[row] = -1;
+        }
+    }
+
+    private List<String> queensToBoard(int[] queens) {
+        List<String> board = new ArrayList<>();
+        for (int q : queens) {
+            char[] row = new char[n];
+            Arrays.fill(row, '.');
+            row[q] = 'Q';
+            board.add(new String(row));
+        }
+        return board;
+    }
+
+    // Count solutions only (memory-efficient)
+    public int totalNQueens(int n) {
+        return countSolutions(0, 0, 0, 0, n);
+    }
+
+    private int countSolutions(int row, int colMask, int diag1Mask, int diag2Mask, int n) {
+        if (row == n) return 1;
+        int count = 0;
+        int available = ((1 << n) - 1) & ~(colMask | diag1Mask | diag2Mask);
+        while (available != 0) {
+            int pos = available & (-available);
+            available &= available - 1;
+            count += countSolutions(row + 1,
+                                    colMask  | pos,
+                                    (diag1Mask | pos) << 1,
+                                    (diag2Mask | pos) >> 1,
+                                    n);
+        }
+        return count;
+    }
+
+    // ─── Main ──────────────────────────────────────────────────────
+    public static void main(String[] args) {
+        NQueens sol = new NQueens();
+
+        System.out.println("=== N-Queens (N=4) ===");
+        List<List<String>> solutions = sol.solveNQueens(4);
+        System.out.println("Total solutions: " + solutions.size());
+        for (List<String> board : solutions) {
+            for (String row : board) System.out.println(row);
+            System.out.println();
+        }
+
+        System.out.println("=== Solution Count for each N ===");
+        for (int i = 1; i <= 10; i++) {
+            System.out.printf("N=%2d → %d solutions%n", i, sol.totalNQueens(i));
+        }
+    }
+}
+```
+
+---
+
+## 9. All Solutions for N=4
+
+```
+Solution 1:           Solution 2:
+  . Q . .               . . Q .
+  . . . Q               Q . . .
+  Q . . .               . . . Q
+  . . Q .               . Q . .
+
+Queens at columns:    Queens at columns:
+  row 0 → col 1         row 0 → col 2
+  row 1 → col 3         row 1 → col 0
+  row 2 → col 0         row 2 → col 3
+  row 3 → col 2         row 3 → col 1
+```
+
+### Solution Count by N
+
+| N | Solutions | N | Solutions |
+|---|-----------|---|-----------|
+| 1 | 1 | 9 | 352 |
+| 2 | 0 | 10 | 724 |
+| 3 | 0 | 11 | 2,680 |
+| 4 | 2 | 12 | 14,200 |
+| 5 | 10 | 13 | 73,712 |
+| 6 | 4 | 14 | 365,596 |
+| 7 | 40 | 15 | 2,279,184 |
+| 8 | 92 | — | — |
+
+---
+
+# PART 2 — SUDOKU SOLVER
+
+## 10. Sudoku Solver — Problem Statement
+
+Fill a **9×9 grid** with digits 1–9 so that:
+- Every **row** contains each digit exactly once
+- Every **column** contains each digit exactly once
+- Each of the nine **3×3 sub-boxes** contains each digit exactly once
+
+Empty cells are represented by `'.'`.
+
+```
+Input:
+  5 3 . | . 7 . | . . .
+  6 . . | 1 9 5 | . . .
+  . 9 8 | . . . | . 6 .
+  ——————+——————+——————
+  8 . . | . 6 . | . . 3
+  4 . . | 8 . 3 | . . 1
+  7 . . | . 2 . | . . 6
+  ——————+——————+——————
+  . 6 . | . . . | 2 8 .
+  . . . | 4 1 9 | . . 5
+  . . . | . 8 . | . 7 9
+
+Output: (one valid solution)
+  5 3 4 | 6 7 8 | 9 1 2
+  6 7 2 | 1 9 5 | 3 4 8
+  1 9 8 | 3 4 2 | 5 6 7
+  ——————+——————+——————
+  8 5 9 | 7 6 1 | 4 2 3
+  4 2 6 | 8 5 3 | 7 9 1
+  7 1 3 | 9 2 4 | 8 5 6
+  ——————+——————+——————
+  9 6 1 | 5 3 7 | 2 8 4
+  2 8 7 | 4 1 9 | 6 3 5
+  3 4 5 | 2 8 6 | 1 7 9
+```
+
+---
+
+## 11. Constraints & Rules
+
+| Constraint | Check |
+|-----------|-------|
+| Row uniqueness | No digit repeated in the same row |
+| Column uniqueness | No digit repeated in the same column |
+| Box uniqueness | No digit repeated in the same 3×3 box |
+| Exactly one solution | Valid Sudoku puzzles have exactly one solution |
+
+### Box Index Formula
+
+Given cell `(row, col)`, its 3×3 box index is:
+
+```
+boxRow = row / 3     (integer division)
+boxCol = col / 3
+boxIndex = boxRow * 3 + boxCol
+
+Example: cell (4, 7)
+  boxRow = 4/3 = 1
+  boxCol = 7/3 = 2
+  boxIndex = 1*3 + 2 = 5  (the 6th box, 0-indexed)
+
+Box layout:
+  0 | 1 | 2
+  —   —   —
+  3 | 4 | 5
+  —   —   —
+  6 | 7 | 8
+```
+
+---
+
+## 12. Backtracking Approach
+
+**Core Idea**: Scan cells left-to-right, top-to-bottom. At each empty cell, try digits 1–9. If a digit is valid, place it and recurse to the next empty cell. If no digit works, **backtrack** (reset cell to `.`) and return false.
+
+```
+solveSudoku(board, row, col):
+    BASE CASES:
+        if row == 9: puzzle solved! return true
+        if col == 9: move to next row → solveSudoku(board, row+1, 0)
+
+    SKIP filled cells:
+        if board[row][col] != '.':
+            return solveSudoku(board, row, col+1)
+
+    TRY each digit 1–9:
+        if isValid(board, row, col, digit):
+            board[row][col] = digit
+            if solveSudoku(board, row, col+1): return true  ← solution found
+            board[row][col] = '.'   ← BACKTRACK
+
+    return false   ← no digit worked here
+```
+
+### Key Property: Find-One vs Find-All
+
+Unlike N-Queens (find all solutions), Sudoku typically asks for **one solution**. So when we find a valid complete board, we immediately return `true` and propagate that up, stopping all further exploration.
+
+---
+
+## 13. How Validity Checking Works
+
+Before placing digit `d` at `(row, col)`:
+
+```java
+boolean isValid(char[][] board, int row, int col, char d) {
+    for (int i = 0; i < 9; i++) {
+        // Row check: any cell in this row already has d?
+        if (board[row][i] == d) return false;
+
+        // Column check: any cell in this column already has d?
+        if (board[i][col] == d) return false;
+
+        // Box check: any cell in this 3x3 box already has d?
+        int boxRow = (row / 3) * 3 + i / 3;
+        int boxCol = (col / 3) * 3 + i % 3;
+        if (board[boxRow][boxCol] == d) return false;
+    }
+    return true;
+}
+```
+
+### Optimized Validity with Sets
+
+Instead of scanning every time (O(9) per check), maintain three boolean arrays:
+```java
+boolean[][] rowUsed  = new boolean[9][10]; // rowUsed[row][digit]
+boolean[][] colUsed  = new boolean[9][10]; // colUsed[col][digit]
+boolean[][] boxUsed  = new boolean[9][10]; // boxUsed[box][digit]
+```
+Each check becomes O(1):
+```java
+boolean safe = !rowUsed[row][d] && !colUsed[col][d] && !boxUsed[box][d];
+```
+
+---
+
+## 14. Recursion Tree — Sudoku
+
+A partial view of the decision tree for one empty cell:
+
+```
+                  f(cell=(0,2), board)
+                        │
+              Try digits 1 through 9:
+                        │
+    ┌──────┬──────┬──────┬──────┬──────┐
+    1      2      3      4     ...     9
+   (✗)    (✗)   (✓)    (✗)           (✗)
+           │      │
+          ...   f(cell=(0,5))
+                   │
+             Try digits 1–9:
+                   │
+           ┌──────┬──────┬──────┐
+           1      2     ...     9
+          (✓)    (✗)          (✗)
+           │
+        f(next empty cell)
+           │
+          ...
+           │
+        f(row=9) → SOLVED ✅ return true
+
+If any cell returns false (all 9 digits exhausted):
+    ← backtrack: reset cell to '.', try next digit in parent
+```
+
+### Search Space vs Pruning
+
+```
+Worst case without pruning:
+  Up to 81 empty cells × 9 choices each = 9^81 possibilities
+  (astronomically large)
+
+With Sudoku constraints:
+  Most cells have very few valid options
+  In practice, typical puzzles solve in microseconds
+  The backtracking tree is heavily pruned by constraints
+```
+
+---
+
+## 15. Stack Memory Representation — Sudoku
+
+Solving proceeds cell by cell. Each call frame holds the current position:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      CALL STACK                             │
+│                                                             │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  solve(row=1, col=1) → placed '7'                  │ ←TOP│
+│  │  trying digit 7, valid → recurse                   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=5) → placed '8'                  │    │
+│  │  trying digit 8, valid → recurse                   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=4) → skipped (was '7', filled)   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=3) → placed '6'                  │    │
+│  │  trying digit 6, valid → recurse                   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=2) → placed '4'                  │    │
+│  │  tried 1(✗),2(✗),3(✗),4(✓) → recurse              │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=1) → skipped (was '3', filled)   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solve(row=0, col=0) → skipped (was '5', filled)   │    │
+│  ├────────────────────────────────────────────────────┤    │
+│  │  solveSudoku(board) → initial call                 │ ←BOT│
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+
+When a cell fails (all 9 digits tried, none valid):
+  → board[row][col] = '.'  (reset)
+  → return false
+  → caller's frame resumes, tries its next digit
+```
+
+---
+
+## 16. Java Code — Sudoku
+
+```java
+import java.util.*;
+
+public class SudokuSolver {
+
+    // ─── Approach A: Simple (recheck validity each time) ─────────────
+    public void solveSudoku(char[][] board) {
+        solve(board, 0, 0);
+    }
+
+    private boolean solve(char[][] board, int row, int col) {
+        // Base case: completed all 9 rows → solved!
+        if (row == 9) return true;
+
+        // Move to next row when current row is complete
+        if (col == 9) return solve(board, row + 1, 0);
+
+        // Skip pre-filled cells
+        if (board[row][col] != '.') {
+            return solve(board, row, col + 1);
+        }
+
+        // Try digits 1 through 9
+        for (char d = '1'; d <= '9'; d++) {
+            if (isValid(board, row, col, d)) {
+                board[row][col] = d;            // Place digit
+
+                if (solve(board, row, col + 1)) // Recurse
+                    return true;                // Solution found! propagate up
+
+                board[row][col] = '.';          // Backtrack
+            }
+        }
+
+        return false; // No digit worked → trigger backtrack in caller
+    }
+
+    private boolean isValid(char[][] board, int row, int col, char d) {
+        for (int i = 0; i < 9; i++) {
+            // Row check
+            if (board[row][i] == d) return false;
+
+            // Column check
+            if (board[i][col] == d) return false;
+
+            // 3x3 box check
+            int boxRow = (row / 3) * 3 + i / 3;
+            int boxCol = (col / 3) * 3 + i % 3;
+            if (board[boxRow][boxCol] == d) return false;
+        }
+        return true;
+    }
+
+    // ─── Approach B: Optimized with boolean arrays O(1) checks ───────
+    private boolean[][] rowUsed = new boolean[9][10];
+    private boolean[][] colUsed = new boolean[9][10];
+    private boolean[][] boxUsed = new boolean[9][10];
+
+    public void solveSudokuFast(char[][] board) {
+        // Initialize tracking arrays from existing board
+        for (int r = 0; r < 9; r++) {
+            for (int c = 0; c < 9; c++) {
+                if (board[r][c] != '.') {
+                    int d = board[r][c] - '0';
+                    int box = (r / 3) * 3 + (c / 3);
+                    rowUsed[r][d] = colUsed[c][d] = boxUsed[box][d] = true;
+                }
+            }
+        }
+        solveFast(board, 0, 0);
+    }
+
+    private boolean solveFast(char[][] board, int row, int col) {
+        if (row == 9) return true;
+        if (col == 9) return solveFast(board, row + 1, 0);
+
+        if (board[row][col] != '.') {
+            return solveFast(board, row, col + 1);
+        }
+
+        int box = (row / 3) * 3 + (col / 3);
+
+        for (int d = 1; d <= 9; d++) {
+            // O(1) validity check
+            if (!rowUsed[row][d] && !colUsed[col][d] && !boxUsed[box][d]) {
+                board[row][col] = (char) ('0' + d);
+                rowUsed[row][d] = colUsed[col][d] = boxUsed[box][d] = true;
+
+                if (solveFast(board, row, col + 1)) return true;
+
+                // Backtrack
+                board[row][col] = '.';
+                rowUsed[row][d] = colUsed[col][d] = boxUsed[box][d] = false;
+            }
+        }
+        return false;
+    }
+
+    // ─── Utility ──────────────────────────────────────────────────────
+    public void printBoard(char[][] board) {
+        for (int r = 0; r < 9; r++) {
+            if (r % 3 == 0 && r != 0) System.out.println("------+-------+------");
+            for (int c = 0; c < 9; c++) {
+                if (c % 3 == 0 && c != 0) System.out.print("| ");
+                System.out.print(board[r][c] + " ");
+            }
+            System.out.println();
+        }
+    }
+
+    // ─── Main ──────────────────────────────────────────────────────────
+    public static void main(String[] args) {
+        SudokuSolver sol = new SudokuSolver();
+
+        char[][] board = {
+            {'5','3','.','.','7','.','.','.','.'},
+            {'6','.','.','1','9','5','.','.','.'},
+            {'.','9','8','.','.','.','.','6','.'},
+            {'8','.','.','.','6','.','.','.','3'},
+            {'4','.','.','8','.','3','.','.','1'},
+            {'7','.','.','.','2','.','.','.','6'},
+            {'.','6','.','.','.','.','2','8','.'},
+            {'.','.','.','4','1','9','.','.','5'},
+            {'.','.','.','.','8','.','.','7','9'}
+        };
+
+        System.out.println("=== Sudoku Solver ===\n");
+        System.out.println("Input:");
+        sol.printBoard(board);
+
+        sol.solveSudoku(board);
+
+        System.out.println("\nSolution:");
+        sol.printBoard(board);
+    }
+}
+```
+
+### Complexity Analysis
+
+| | Complexity | Notes |
+|--|--|--|
+| **Time (worst)** | O(9^M) | M = number of empty cells |
+| **Time (typical)** | Much better | Pruning eliminates most branches early |
+| **Space** | O(81) = O(1) | Board is fixed size; stack depth ≤ 81 |
+
+---
+
+# PART 3 — INTERVIEW PREPARATION
+
+## 17. Comparison: N-Queens vs Sudoku
+
+```
+┌──────────────────────┬────────────────────────┬──────────────────────────┐
+│ Aspect               │ N-Queens                │ Sudoku Solver            │
+├──────────────────────┼────────────────────────┼──────────────────────────┤
+│ Grid size            │ N × N (variable)        │ Fixed 9 × 9              │
+│ Traverse by          │ Row by row              │ Cell by cell (row,col)   │
+│ Choices per step     │ N columns               │ Digits 1–9               │
+│ Validity checks      │ col, diag1, diag2       │ row, col, 3×3 box        │
+│ Find how many?       │ All solutions           │ One solution (stop early)│
+│ Return type          │ List of boards          │ Modify board in place    │
+│ Pruning              │ 3 constraint sets       │ 3 constraint arrays      │
+│ Backtrack operation  │ Remove queen, unmark    │ Reset cell to '.', unmark│
+│ Base case            │ row == N                │ row == 9                 │
+│ Time complexity      │ O(N!)                   │ O(9^M) where M = empties │
+└──────────────────────┴────────────────────────┴──────────────────────────┘
+```
+
+### Both share the same core pattern:
+
+```
+1. Find next position to fill
+2. Try all valid choices
+3. For each valid choice:
+   a. Apply choice
+   b. Recurse
+   c. If successful → return (Sudoku) or continue (N-Queens)
+   d. Undo choice (backtrack)
+4. Return failure if no choice worked
+```
+
+---
+
+## 18. Common Errors & Pitfalls
+
+### N-Queens Mistakes
+
+| Mistake | Symptom | Fix |
+|---------|---------|-----|
+| Wrong diagonal formula | Queens attack each other diagonally | Use `r-c` for primary, `r+c` for anti-diagonal |
+| Not unmark after backtrack | Cells blocked incorrectly in sibling branches | Always remove from all 3 sets after recursion |
+| Not copying board to result | All results show the same (empty) board | Add `boardToList(board)` — make a snapshot |
+| Checking wrong direction | Missed attacks | Check col, both diagonals — that's all you need |
+| Placing multiple queens per row | Invalid solutions | Fix: one recursive call per row, advance row by 1 |
+
+### Sudoku Mistakes
+
+| Mistake | Symptom | Fix |
+|---------|---------|-----|
+| Not resetting cell on backtrack | Board corrupted; wrong solution | `board[r][c] = '.'` after failed recursion |
+| Box index formula wrong | Some box constraints missed | `boxIndex = (r/3)*3 + (c/3)` |
+| Returning true prematurely | Stops before valid solution found | Only return `true` when `row == 9` |
+| Forgetting to skip filled cells | Overwrites given digits | Check `if board[r][c] != '.'` first |
+| Not propagating `true` upward | Correct solution found but discarded | `if (solve(...)) return true;` after placement |
+
+---
+
+## 19. Interview Preparation Guide
+
+### 🎯 Recognition Signals
+
+**N-Queens**: Any problem involving placing N non-attacking pieces on a grid.
+**Sudoku**: Any constraint satisfaction problem on a 2D grid with row/col/region rules.
+
+Both signal: **"Use backtracking with constraint checking."**
+
+---
+
+### 🗣️ How to Explain N-Queens in an Interview
+
+**Step 1 — Observation (10 seconds)**
+> "We place one queen per row. That's N decisions, each choosing a column. This is a backtracking tree with branching factor N."
+
+**Step 2 — State the approach (20 seconds)**
+> "I'll recurse row by row. At each row, I try each column. Before placing, I check three constraints: no shared column, no shared primary diagonal (r-c constant), no shared anti-diagonal (r+c constant). I'll track these in three sets for O(1) lookups."
+
+**Step 3 — Explain backtracking (10 seconds)**
+> "If placing a queen leads to a dead end in a later row, I remove it and try the next column. This is the backtrack step."
+
+**Step 4 — Complexity (10 seconds)**
+> "Time is O(N!) since we're generating all permutations of queen placements. Space is O(N) for the recursion stack and constraint sets."
+
+---
+
+### 🗣️ How to Explain Sudoku in an Interview
+
+**Step 1 — Observation (10 seconds)**
+> "This is a constraint satisfaction problem. We fill empty cells one by one, trying digits 1–9. If a placement violates any constraint, we backtrack."
+
+**Step 2 — State the approach (20 seconds)**
+> "I'll scan the board left-to-right, top-to-bottom. At each empty cell, I try digits 1–9. For each digit, I validate against the row, column, and 3×3 box. If valid, I place it and recurse to the next cell. If recursion returns true, I'm done. Otherwise, I reset and try the next digit."
+
+**Step 3 — Optimization (10 seconds)**
+> "For performance, I can use boolean arrays — `rowUsed[9][10]`, `colUsed[9][10]`, `boxUsed[9][10]` — to make validity checks O(1) instead of O(9)."
+
+**Step 4 — Complexity (10 seconds)**
+> "Worst case O(9^M) where M is empty cells, but in practice the constraint pruning makes it extremely fast."
+
+---
+
+### 📋 Top Interview Problems Using These Patterns
+
+| Problem | Pattern | Difficulty |
+|---------|---------|------------|
+| LeetCode 51 — N-Queens | N-Queens classic | Hard |
+| LeetCode 52 — N-Queens II (count) | N-Queens count only | Hard |
+| LeetCode 37 — Sudoku Solver | Sudoku classic | Hard |
+| LeetCode 36 — Valid Sudoku (check only) | Constraint check | Medium |
+| LeetCode 79 — Word Search | Grid backtracking | Medium |
+| LeetCode 212 — Word Search II | Grid backtracking + Trie | Hard |
+| LeetCode 980 — Unique Paths III | Grid backtracking | Hard |
+
+---
+
+### ⚡ Template Comparison Cheat Sheet
+
+```
+N-QUEENS template:
+  solve(row):
+    if row == N → save board, return
+    for col in 0..N-1:
+      if valid(row, col):
+        place(row, col)
+        solve(row + 1)
+        remove(row, col)       ← backtrack
+
+SUDOKU template:
+  solve(row, col):
+    if row == 9  → return true (done!)
+    if col == 9  → return solve(row+1, 0)
+    if filled    → return solve(row, col+1)
+    for d in 1..9:
+      if valid(row, col, d):
+        board[row][col] = d
+        if solve(row, col+1): return true
+        board[row][col] = '.' ← backtrack
+    return false
+```
+
+---
+
+### 💡 Key Insight for Both Problems
+
+> **Backtracking = DFS on a decision tree where you undo bad decisions.**
+>
+> The efficiency comes from **pruning** — the moment a partial solution violates a constraint, you don't explore any of its subtrees. For N-Queens with 8 rows, this reduces billions of naive combinations to just 92 valid solutions checked efficiently.
+
+---
+
+### 📊 Complexity Quick Reference
+
+| Problem | Time | Space | Notes |
+|---------|------|-------|-------|
+| N-Queens | O(N!) | O(N) | Constraint sets reduce actual work dramatically |
+| N-Queens II (count) | O(N!) | O(N) | No board storage needed |
+| Sudoku | O(9^M) | O(1) | M=empty cells; constraints prune heavily |
+| Sudoku (optimized) | Same | O(1) | O(1) checks with boolean arrays |
+
+---
+
+> 🏆 **Mastery Tip**: If you can explain why the backtrack step (undoing the choice) is necessary — and what goes wrong without it — you've truly understood backtracking. Practice tracing through small examples by hand before coding.
